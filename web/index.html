@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>全能视像解析终端</title>
+<link rel="stylesheet" href="static/css/app.css">
+</head>
+<body data-theme="light">
+<header class="app-header">
+  <div class="header-title">全能视像解析终端</div>
+  <div class="header-actions">
+    <button class="text-btn" id="themeToggle">切换主题</button>
+    <button class="text-btn" id="settingsJump">设置</button>
+  </div>
+</header>
+
+<main class="app-main" id="appMain">
+
+  <!-- ============ 工作台 ============ -->
+  <section class="panel" id="panel-workbench">
+    <h2 class="section-title">任务队列</h2>
+    <div class="weui-cells">
+      <div class="dropzone" id="dropzone">
+        <p class="dropzone-tip">将文件拖拽到此处</p>
+        <div class="dropzone-btns">
+          <button class="weui-btn weui-btn_primary weui-btn_mini" id="btnPickFiles">选择文件</button>
+          <button class="weui-btn weui-btn_default weui-btn_mini" id="btnPickPath">添加本地路径</button>
+        </div>
+        <input type="file" id="fileInput" multiple hidden>
+      </div>
+    </div>
+    <div class="queue-head" id="queueHead">
+      <span id="queueCount">队列为空</span>
+      <span class="queue-head-actions">
+        <button class="view-btn" id="viewList" title="列表视图">列表</button>
+        <button class="view-btn" id="viewGrid" title="网格视图">网格</button>
+        <button class="weui-btn weui-btn_warn weui-btn_mini" id="btnClearQueue">清空队列</button>
+      </span>
+    </div>
+    <div class="weui-cells queue-list" id="queueList"></div>
+
+    <h2 class="section-title">模型与参数</h2>
+    <div class="weui-cells cells-grid">
+      <div class="cell-item cell-span2">
+        <label class="cell-label">模型</label>
+        <div class="model-row">
+          <select class="weui-select" id="modelChoice"></select>
+          <button class="weui-btn weui-btn_default weui-btn_mini" id="btnModelLib">模型库</button>
+        </div>
+        <p class="model-desc" id="modelDesc"></p>
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">放大倍数</label>
+        <div class="slider-cell">
+          <input type="range" id="scaleRange" min="1" max="64" step="0.1" value="4">
+          <input type="number" id="scaleNum" class="spin" min="1" max="64" step="any" value="4">
+        </div>
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">切块大小</label>
+        <div class="slider-cell">
+          <input type="range" id="blockRange" min="256" max="4000" step="100" value="1000">
+          <input type="number" id="blockNum" class="spin" min="256" max="4000" step="100" value="1000">
+        </div>
+      </div>
+      <div class="cell-item cell-span2">
+        <button class="weui-btn weui-btn_primary" id="btnApplyParams">应用参数</button>
+        <p class="param-lock-tip" id="paramLockTip" hidden>倍率与切块已锁定,任务运行中不可修改;再次点击可解锁</p>
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">快捷分辨率</label>
+        <div class="preset-row">
+          <button class="preset-btn" data-w="1920" data-h="1080">1080P</button>
+          <button class="preset-btn" data-w="2560" data-h="1440">2K</button>
+          <button class="preset-btn" data-w="3840" data-h="2160">4K</button>
+          <button class="preset-btn" data-w="7680" data-h="4320">8K</button>
+          <button class="preset-btn" data-w="1080" data-h="1920">竖屏</button>
+        </div>
+      </div>
+      <div class="cell-item cell-span2">
+        <label class="cell-label">功能开关</label>
+        <div class="switch-grid">
+          <label class="switch-item"><input type="checkbox" class="weui-switch" id="chkFast"><span>极速模式</span></label>
+          <label class="switch-item"><input type="checkbox" class="weui-switch" id="chkCompress"><span>视觉无损压缩</span></label>
+          <label class="switch-item"><input type="checkbox" class="weui-switch" id="chkCpu"><span>强制 CPU</span></label>
+          <label class="switch-item"><input type="checkbox" class="weui-switch" id="chkSilent"><span>静默模式</span></label>
+          <label class="switch-item"><input type="checkbox" class="weui-switch" id="chkKeepSlices"><span>保留切片</span></label>
+          <label class="switch-item"><input type="checkbox" class="weui-switch" id="chkCustomRes"><span>锁定画幅</span></label>
+        </div>
+      </div>
+      <details class="cell-item cell-span2 adv-details">
+        <summary>高级参数</summary>
+        <div class="cells-grid adv-inner">
+          <div class="cell-item">
+            <label class="cell-label">输出格式</label>
+            <select class="weui-select" id="outFormat">
+              <option value=".png">.png</option>
+              <option value=".jpg">.jpg</option>
+              <option value=".tif">.tif</option>
+              <option value=".webp">.webp</option>
+              <option value=".bmp">.bmp</option>
+            </select>
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">视频策略</label>
+            <select class="weui-select" id="videoMode">
+              <option value="upscale_only">仅超分</option>
+              <option value="interp_only">仅插帧</option>
+              <option value="both">超分与插帧</option>
+            </select>
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">插帧倍数</label>
+            <select class="weui-select" id="interpRatio">
+              <option value="2">2 倍</option>
+              <option value="4">4 倍</option>
+            </select>
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">目标宽度</label>
+            <input type="number" id="targetWidth" class="spin spin-wide" min="128" max="16384" step="1" value="1920">
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">目标高度</label>
+            <input type="number" id="targetHeight" class="spin spin-wide" min="128" max="16384" step="1" value="1080">
+          </div>
+          <div class="cell-item cell-span2">
+            <label class="cell-label">碎片目录</label>
+            <div class="inline-row">
+              <input class="weui-input" id="sliceDir" placeholder="默认临时目录">
+              <button type="button" class="mini-btn" id="btnPickSliceDir" title="浏览选择目录">浏览</button>
+            </div>
+          </div>
+          <div class="cell-item cell-span2">
+            <label class="cell-label">输出目录</label>
+            <div class="inline-row">
+              <input class="weui-input" id="outputDir" placeholder="源文件同级目录">
+              <button type="button" class="mini-btn" id="btnPickOutputDir" title="浏览选择目录">浏览</button>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="btn-row">
+      <button class="weui-btn weui-btn_primary" id="btnStartBatch">启动基础解析</button>
+      <button class="weui-btn weui-btn_primary" id="btnStartAlpha">启动立绘引擎</button>
+      <button class="weui-btn weui-btn_default" id="btnStartCloud">云端处理</button>
+      <button class="weui-btn weui-btn_default" id="btnPause" hidden>暂停</button>
+      <button class="weui-btn weui-btn_warn" id="btnStop" hidden>中止</button>
+    </div>
+
+    <h2 class="section-title">任务进度</h2>
+    <div class="weui-cells job-panel">
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="preview-pair" id="previewPair" hidden>
+        <div class="preview-box">
+          <div class="preview-cap">原图</div>
+          <img id="previewSrc" alt="原图">
+        </div>
+        <div class="preview-arrow">→</div>
+        <div class="preview-box">
+          <div class="preview-cap">超分结果</div>
+          <img id="previewDst" alt="结果">
+        </div>
+      </div>
+      <div class="log-box" id="logBox"></div>
+      <div class="outputs-head">输出文件</div>
+      <div class="outputs-list" id="outputsList"></div>
+      <button class="weui-btn weui-btn_default weui-btn_mini" id="btnOpenDir">打开输出文件夹</button>
+    </div>
+  </section>
+
+  <!-- ============ 工具箱 ============ -->
+  <section class="panel" id="panel-tools" hidden>
+    <div class="tools-grid">
+      <div class="weui-cells tool-card tool-span2">
+        <h3 class="card-title">局部裁切</h3>
+        <div class="cell-item">
+          <label class="cell-label">源图片(来自任务队列)</label>
+          <select class="weui-select" id="cropSource"></select>
+        </div>
+        <div class="crop-wrap">
+          <canvas id="cropCanvas" width="640" height="360"></canvas>
+          <p class="crop-hint" id="cropHint">从队列选择图片后载入,按住鼠标框选区域</p>
+        </div>
+        <div class="crop-actions">
+          <select class="weui-select crop-ext" id="cropExt">
+            <option value=".png">.png</option>
+            <option value=".jpg">.jpg</option>
+            <option value=".webp">.webp</option>
+          </select>
+          <button class="weui-btn weui-btn_primary weui-btn_mini" id="btnCropReplace">保存(替换原文件)</button>
+          <button class="weui-btn weui-btn_default weui-btn_mini" id="btnCropCopy">保存为副本</button>
+        </div>
+        <div class="crop-dir-row inline-row">
+          <input class="weui-input crop-dir" id="cropSaveDir" placeholder="副本保存目录(留空=输出目录)">
+          <button type="button" class="mini-btn" id="btnPickCropSaveDir" title="浏览选择目录">浏览</button>
+        </div>
+        <div class="crop-result" id="cropResultBox" hidden>
+          <div class="preview-cap" id="cropResultCap">裁切结果</div>
+          <img id="cropResult" alt="裁切结果">
+        </div>
+      </div>
+
+      <div class="weui-cells tool-card">
+        <h3 class="card-title">硬件探测</h3>
+        <div class="cell-item">
+          <label class="cell-label">图片宽 × 高</label>
+          <div class="slider-cell">
+            <input type="number" id="hwWidth" class="spin" value="1920" min="1" step="1">
+            <span class="x-mark">×</span>
+            <input type="number" id="hwHeight" class="spin" value="1080" min="1" step="1">
+          </div>
+        </div>
+        <div class="cell-item">
+          <label class="cell-label">放大倍数</label>
+          <input type="number" id="hwScale" class="spin" value="4" min="1" max="64" step="0.5">
+        </div>
+        <button class="weui-btn weui-btn_default weui-btn_mini" id="btnHardware">开始探测</button>
+        <div class="report-cell" id="hwReport" hidden></div>
+      </div>
+
+      <div class="weui-cells tool-card">
+        <h3 class="card-title">图片压缩工具</h3>
+        <div class="cell-item">
+          <label class="cell-label">源图片(来自任务队列)</label>
+          <select class="weui-select" id="compressSource"></select>
+        </div>
+        <p class="tool-tip">WebP 格式,质量 90,压缩算法 method 6</p>
+        <button class="weui-btn weui-btn_default weui-btn_mini" id="btnCompress">无损压缩</button>
+        <div class="report-cell" id="compressReport" hidden></div>
+      </div>
+
+      <div class="weui-cells tool-card">
+        <h3 class="card-title">自适应硬件调优</h3>
+        <p class="tool-tip">根据显卡显存自动配置极速模式与切块大小</p>
+        <button class="weui-btn weui-btn_default weui-btn_mini" id="btnAutotune">一键调优</button>
+        <div class="report-cell" id="autotuneReport" hidden></div>
+      </div>
+
+      <div class="weui-cells tool-card tool-span2">
+        <h3 class="card-title">模型微调训练</h3>
+        <div class="cells-grid">
+          <div class="cell-item cell-span2">
+            <label class="cell-label">数据集目录</label>
+            <div class="inline-row">
+              <input class="weui-input" id="trainDir" placeholder="包含训练图片的目录路径">
+              <button type="button" class="mini-btn" id="btnPickTrainDir" title="浏览选择目录">浏览</button>
+            </div>
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">训练轮次</label>
+            <input type="number" id="trainEpochs" class="spin spin-wide" value="100" min="1" step="1">
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">批大小</label>
+            <input type="number" id="trainBatch" class="spin spin-wide" value="4" min="1" step="1">
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">学习率</label>
+            <input type="number" id="trainLr" class="spin spin-wide" value="0.0001" min="0.0000001" step="0.0001">
+          </div>
+          <div class="cell-item">
+            <label class="cell-label">存档频率</label>
+            <input type="number" id="trainSaveFreq" class="spin spin-wide" value="10" min="1" step="1">
+          </div>
+        </div>
+        <button class="weui-btn weui-btn_primary weui-btn_mini" id="btnTrain">开始训练</button>
+        <div class="progress-row">
+          <div class="progress-track"><div class="progress-bar" id="trainBar" style="width:0%"></div></div>
+          <span class="progress-pct" id="trainPct">0%</span>
+        </div>
+        <div class="log-box" id="trainLog"></div>
+      </div>
+
+      <div class="weui-cells tool-card tool-span2">
+        <h3 class="card-title">WebApp 引导包</h3>
+        <p class="tool-tip">生成包含 start_webui.bat 与全部核心代码的自包含压缩包</p>
+        <button class="weui-btn weui-btn_default weui-btn_mini" id="btnPackage">生成引导包</button>
+        <div class="report-cell" id="packageReport" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 设置 ============ -->
+  <section class="panel" id="panel-settings" hidden>
+    <h2 class="section-title">外观</h2>
+    <div class="weui-cells cells-grid">
+      <div class="cell-item">
+        <label class="cell-label">界面主题</label>
+        <label class="switch-item"><input type="checkbox" class="weui-switch" id="setDark"><span>深色主题</span></label>
+      </div>
+      <div class="cell-item cell-span2">
+        <label class="cell-label">自定义背景</label>
+        <div class="bg-row">
+          <img id="bgPreview" alt="当前背景" hidden>
+          <button class="weui-btn weui-btn_default weui-btn_mini" id="btnPickBg">选择图片</button>
+          <button class="weui-btn weui-btn_primary weui-btn_mini" id="btnUploadBg">上传并应用</button>
+          <button class="weui-btn weui-btn_warn weui-btn_mini" id="btnClearBg">清除背景</button>
+          <input type="file" id="bgInput" accept="image/*" hidden>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">默认选项</h2>
+    <div class="weui-cells cells-grid">
+      <div class="cell-item">
+        <label class="cell-label">默认图片格式</label>
+        <select class="weui-select" id="setImgFormat">
+          <option value=".png">.png</option>
+          <option value=".jpg">.jpg</option>
+          <option value=".tif">.tif</option>
+          <option value=".webp">.webp</option>
+          <option value=".bmp">.bmp</option>
+        </select>
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">默认视频格式</label>
+        <select class="weui-select" id="setVidFormat">
+          <option value=".mp4">.mp4 (MP4 容器)</option>
+        </select>
+      </div>
+      <div class="cell-item cell-span2">
+        <label class="cell-label">默认使用模型</label>
+        <select class="weui-select" id="setDefaultModel"></select>
+      </div>
+      <div class="cell-item cell-span2">
+        <label class="cell-label">启动时默认打开的界面</label>
+        <select class="weui-select" id="setLaunchMode">
+          <option value="ask">每次询问</option>
+          <option value="console">桌面窗口模式</option>
+          <option value="webui">WebUI 模式(浏览器)</option>
+          <option value="service">仅后台服务</option>
+        </select>
+        <p class="model-desc">影响启动器双击后的行为;选择后打开方式选择窗口将直接进入对应模式。</p>
+      </div>
+    </div>
+
+    <h2 class="section-title">队列与预览</h2>
+    <div class="weui-cells cells-grid">
+      <div class="cell-item">
+        <label class="cell-label">列表缩略图</label>
+        <label class="switch-item"><input type="checkbox" class="weui-switch" id="setQueueThumb"><span>显示</span></label>
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">文件完整名</label>
+        <label class="switch-item"><input type="checkbox" class="weui-switch" id="setFullName"><span>显示</span></label>
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">超分结果预览</label>
+        <label class="switch-item"><input type="checkbox" class="weui-switch" id="setPreview"><span>显示</span></label>
+      </div>
+    </div>
+
+    <h2 class="section-title">云端设置</h2>
+    <div class="weui-cells cells-grid">
+      <div class="cell-item cell-span2">
+        <label class="cell-label">服务器地址</label>
+        <input class="weui-input" id="setCloudUrl">
+      </div>
+      <div class="cell-item cell-span2">
+        <label class="cell-label">API Key</label>
+        <input class="weui-input" id="setCloudKey" type="password">
+      </div>
+    </div>
+    <h2 class="section-title">服务设置</h2>
+    <div class="weui-cells cells-grid">
+      <div class="cell-item">
+        <label class="cell-label">端口</label>
+        <input class="weui-input" id="setPort" type="number" min="1" max="65535">
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">监听地址</label>
+        <input class="weui-input" id="setServerName">
+      </div>
+      <div class="cell-item">
+        <label class="cell-label">局域网共享</label>
+        <label class="switch-item"><input type="checkbox" class="weui-switch" id="setShare"><span>允许其他设备访问</span></label>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="weui-btn weui-btn_primary" id="btnSaveConfig">保存设置</button>
+    </div>
+    <div class="weui-cells tips-cell">
+      <p class="tips">端口、监听地址与默认启动模式在下次启动服务时生效。</p>
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <a class="tabbar-item active" data-panel="panel-workbench"><span class="tab-text">工作台</span></a>
+  <a class="tabbar-item" data-panel="panel-tools"><span class="tab-text">工具箱</span></a>
+  <a class="tabbar-item" data-panel="panel-settings"><span class="tab-text">设置</span></a>
+</nav>
+
+<!-- 模型库弹窗 -->
+<div class="modal-mask" id="modelLibMask" hidden>
+  <div class="modal-card modal-wide">
+    <div class="modal-title">模型库</div>
+    <div class="model-lib-head">
+      <button class="weui-btn weui-btn_default weui-btn_mini" id="btnImportModel">导入 .pth 模型</button>
+      <span class="model-lib-tip" id="modelLibTip"></span>
+      <input type="file" id="modelImportInput" accept=".pth" hidden>
+    </div>
+    <div class="model-lib-list" id="modelLibList"></div>
+    <div class="btn-row">
+      <button class="weui-btn weui-btn_primary" id="btnModelLibClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 目录选择弹窗(WebUI 模式) -->
+<div class="modal-mask" id="dirBrowserMask" hidden>
+  <div class="modal-card modal-wide">
+    <div class="modal-title">选择目录</div>
+    <div class="inline-row dir-go-row">
+      <input class="weui-input modal-input" id="dirBrowserPath" placeholder="目录路径">
+      <button type="button" class="mini-btn" id="btnDirGo">跳转</button>
+    </div>
+    <div class="dir-list" id="dirBrowserList"></div>
+    <div class="btn-row">
+      <button class="weui-btn weui-btn_default" id="btnDirCancel">取消</button>
+      <button class="weui-btn weui-btn_primary" id="btnDirPick">选择此目录</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+window.__errs = [];
+window.addEventListener("error", function (e) { window.__errs.push("err:" + e.message); }, true);
+window.addEventListener("unhandledrejection", function (e) {
+  window.__errs.push("rej:" + String((e.reason && e.reason.message) || e.reason));
+});
+</script>
+<script src="static/js/app.js"></script>
+</body>
+</html>

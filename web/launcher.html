@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>全能视像解析终端</title>
+<style>
+  :root {
+    --bg1: #10131a; --bg2: #161b26; --card: #1d2432;
+    --card-hover: #263047; --border: #2c3650; --text: #e8ecf4;
+    --sub: #93a0b8; --acc: #4f8cff; --acc2: #7c5cff; --ok: #35c48a;
+    --warn: #ffb454;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 600px at 20% -10%, #1b2740 0%, transparent 55%),
+                radial-gradient(900px 500px at 110% 110%, #231b40 0%, transparent 55%),
+                linear-gradient(160deg, var(--bg1), var(--bg2));
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  .wrap { height: 100%; display: flex; flex-direction: column; padding: 28px 34px 22px; }
+  .head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  .logo {
+    width: 46px; height: 46px; border-radius: 13px; flex: none;
+    background: linear-gradient(135deg, var(--acc), var(--acc2));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(79, 140, 255, .35);
+  }
+  .logo svg { width: 26px; height: 26px; }
+  .title { font-size: 21px; font-weight: 700; letter-spacing: 1px; }
+  .sub { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .badge {
+    margin-left: auto; font-size: 12px; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--sub); background: rgba(255,255,255,.03);
+  }
+  .badge.on { color: var(--ok); border-color: rgba(53,196,138,.4); background: rgba(53,196,138,.08); }
+  .badge.off { color: var(--warn); border-color: rgba(255,180,84,.35); background: rgba(255,180,84,.07); }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 22px; flex: 1; }
+  .card {
+    position: relative; border: 1px solid var(--border); border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+    padding: 22px 18px 18px; cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s;
+    display: flex; flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-3px); border-color: var(--acc);
+    box-shadow: 0 10px 26px rgba(79,140,255,.18);
+  }
+  .card .ico {
+    width: 44px; height: 44px; border-radius: 12px; margin-bottom: 14px;
+    background: rgba(79,140,255,.12); display: flex; align-items: center; justify-content: center;
+  }
+  .card:nth-child(2) .ico { background: rgba(124,92,255,.14); }
+  .card:nth-child(3) .ico { background: rgba(53,196,138,.12); }
+  .card .ico svg { width: 24px; height: 24px; }
+  .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .card p { font-size: 12px; color: var(--sub); line-height: 1.7; flex: 1; }
+  .card .tag {
+    margin-top: 12px; font-size: 11px; color: var(--acc); opacity: 0; transition: opacity .15s;
+  }
+  .card:hover .tag { opacity: 1; }
+  .foot {
+    display: flex; align-items: center; gap: 12px; margin-top: 20px; padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--sub); cursor: pointer; }
+  .chk input { accent-color: var(--acc); width: 15px; height: 15px; cursor: pointer; }
+  .btn {
+    border: 1px solid var(--border); background: rgba(255,255,255,.04); color: var(--text);
+    font-size: 12.5px; padding: 7px 16px; border-radius: 9px; cursor: pointer; transition: background .15s;
+  }
+  .btn:hover { background: rgba(255,255,255,.09); }
+  .spacer { flex: 1; }
+  .hint { font-size: 11px; color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="14" rx="2.5"></rect>
+        <circle cx="9" cy="10" r="2.2"></circle>
+        <path d="M5.5 18.5 10 14l3 3 4-4 4 4"></path>
+        <path d="M12 21v-1.5"></path>
+      </svg>
+    </div>
+    <div>
+      <div class="title">全能视像解析终端</div>
+      <div class="sub">v2.2.0 · 超分辨率 · 视频增强 · 图像处理</div>
+    </div>
+    <div class="badge" id="statusBadge">选择打开方式</div>
+  </div>
+
+  <div class="cards">
+    <div class="card" data-mode="desktop">
+      <div class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#7fa8ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="13" rx="2.5"></rect>
+          <path d="M9 21h6M12 17v4"></path>
+        </svg>
+      </div>
+      <h3>桌面窗口</h3>
+      <p>独立应用界面,无需浏览器,不占用网络端口。全部功能内置,打开即用。</p>
+      <div class="tag">打开桌面版 →</div>
+    </div>
+    <div class="card" data-mode="webui">
+      <div class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#a58cff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M3 12h18M12 3c2.8 2.6 4.2 5.7 4.2 9S14.8 18.4 12 21c-2.8-2.6-4.2-5.7-4.2-9S9.2 5.6 12 3z"></path>
+        </svg>
+      </div>
+      <h3>WebUI 浏览器</h3>
+      <p>启动本地引擎服务,在默认浏览器中打开界面。适合多设备访问与远程使用。</p>
+      <div class="tag">启动引擎并打开浏览器 →</div>
+    </div>
+    <div class="card" data-mode="service">
+      <div class="ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#5fd6a5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="2.5"></rect>
+          <path d="M4 9h16M9 4v5"></path>
+        </svg>
+      </div>
+      <h3>仅后台服务</h3>
+      <p>只在后台启动引擎,不打开任何界面。稍后可通过浏览器手动访问本机端口。</p>
+      <div class="tag">仅启动后台服务 →</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <label class="chk"><input type="checkbox" id="chkRemember">记住我的选择,下次自动打开</label>
+    <span class="spacer"></span>
+    <span class="hint" id="hint"></span>
+    <button class="btn" id="btnOpenDir">打开数据目录</button>
+    <button class="btn" id="btnQuit">退出</button>
+  </div>
+</div>
+
+<script>
+  var api = null;
+  var launched = false;
+
+  function init() {
+    api = window.pywebview ? window.pywebview.api : null;
+    if (!api) return;
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.addEventListener("click", function () { launch(c.dataset.mode); });
+    });
+    document.getElementById("btnOpenDir").addEventListener("click", function () {
+      api.open_data_dir();
+    });
+    document.getElementById("btnQuit").addEventListener("click", function () {
+      api.quit_app();
+    });
+  }
+
+  function launch(mode) {
+    if (launched) return;
+    launched = true;
+    var remember = document.getElementById("chkRemember").checked;
+    var hint = document.getElementById("hint");
+    function go() {
+      api.launch(mode).then(function (r) {
+        if (r && r.ok === false) {
+          hint.textContent = r.error || "启动失败";
+          launched = false;
+          return;
+        }
+        hint.textContent = "正在打开,请稍候…";
+      });
+    }
+    if (remember) {
+      api.remember_mode(mode).then(go);
+    } else {
+      go();
+    }
+  }
+
+  var tries = 0;
+  (function waitReady() {
+    if (window.pywebview && window.pywebview.api &&
+        typeof window.pywebview.api.launch === "function") {
+      init();
+      return;
+    }
+    if (++tries < 100) setTimeout(waitReady, 200);
+  })();
+</script>
+</body>
+</html>
