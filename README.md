@@ -126,7 +126,7 @@ flowchart TD
 
 ### ☁️ 途径二：谷歌云盘 (Google Drive) 完整免安装包直达
 如果你更习惯网盘单文件直接满速下载，可使用本终端作者同步上传的谷歌云盘单文件镜像：
-- **Google Drive 直达链接**: [OmniVisionTerminal 便携免安装完整版 (Google Drive)](https://drive.google.com/drive/folders/1769661448882069818) *(可在云端硬盘 OmniVisionTerminal 目录下直接下载单文件 zip)*
+- **Google Drive 直达链接**: [OmniVisionTerminal 便携免安装完整版 (Google Drive)](https://drive.google.com/drive/folders/18e8A2xqJflYHBNykImmglnKGQqTV9xx4) *(可在云端硬盘 OmniVisionTerminal 目录下直接下载单文件 zip)*
 
 ---
 
