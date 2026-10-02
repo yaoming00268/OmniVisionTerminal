@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = 'G:\chaofen5'
 
 Write-Host '[1/5] PyArmor 加密...'
-& "$root\.venv\Scripts\pyarmor.exe" gen -O "$root\pack\obf_dist" -r "$root\main.py" "$root\core" "$root\app"
+& "$root\.venv\Scripts\pyarmor.exe" gen -O "$root\pack\obf_dist" -r "$root\main.py" "$root\desktop_api.py" "$root\monitor_utils.py" "$root\core" "$root\app"
 if ($LASTEXITCODE -ne 0) { Write-Host 'PYARMOR_FAIL'; exit 1 }
 Write-Host 'PYARMOR_OK'
 
@@ -13,7 +13,12 @@ Write-Host '[2/5] PyInstaller 封装...'
     --add-data "$root\web;web" `
     --add-data "$root\pack\obf_dist\core;core" `
     --add-data "$root\pack\obf_dist\app;app" `
+    --add-data "$root\pack\obf_dist\desktop_api.py;." `
+    --add-data "$root\pack\obf_dist\monitor_utils.py;." `
     --hidden-import pyarmor_runtime_000000 `
+    --hidden-import webview `
+    --hidden-import desktop_api `
+    --hidden-import monitor_utils `
     --hidden-import cv2 `
     --hidden-import torch `
     --hidden-import numpy `

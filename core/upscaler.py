@@ -47,12 +47,17 @@ def core_upscale(img_rgb, model, native_scale, device, block_size=1000, use_fast
     tile_size = block_size
     overlap = 32
     stride = tile_size - overlap
-    req_w = math.ceil(max(w - overlap, 1) / stride) * stride + overlap
-    req_h = math.ceil(max(h - overlap, 1) / stride) * stride + overlap
-    pad_w = req_w - w
-    pad_h = req_h - h
+    margin = overlap
 
-    padded_img = cv2.copyMakeBorder(img_rgb, 0, pad_h, 0, pad_w, cv2.BORDER_REFLECT)
+    # 对称外扩填充，使原图有效区域完全置于内侧完整权重区，杜绝边缘黑线与阶调量化撕裂
+    h_with_margin = h + 2 * margin
+    w_with_margin = w + 2 * margin
+    req_w = math.ceil(max(w_with_margin - overlap, 1) / stride) * stride + overlap
+    req_h = math.ceil(max(h_with_margin - overlap, 1) / stride) * stride + overlap
+    pad_w = req_w - w_with_margin
+    pad_h = req_h - h_with_margin
+
+    padded_img = cv2.copyMakeBorder(img_rgb, margin, margin + pad_h, margin, margin + pad_w, cv2.BORDER_REFLECT)
     ph, pw = padded_img.shape[:2]
     p_out_h = ph * native_scale
     p_out_w = pw * native_scale
@@ -120,8 +125,8 @@ def core_upscale(img_rgb, model, native_scale, device, block_size=1000, use_fast
             ox2 = (x + tile_size) * native_scale
 
             if slice_save_dir:
-                valid_h = min(tile_size * native_scale, out_h - oy1)
-                valid_w = min(tile_size * native_scale, out_w - ox1)
+                valid_h = min(tile_size * native_scale, p_out_h - oy1)
+                valid_w = min(tile_size * native_scale, p_out_w - ox1)
                 if valid_h > 0 and valid_w > 0:
                     out_tile_bgr = cv2.cvtColor(out_tile_u8, cv2.COLOR_RGB2BGR)
                     out_tile_bgr_cropped = out_tile_bgr[:valid_h, :valid_w]
@@ -145,14 +150,20 @@ def core_upscale(img_rgb, model, native_scale, device, block_size=1000, use_fast
     _log(f"所有 {total_tiles} 个切块超分完成，正在进行无缝累加加权拼合...")
     _prog(88)
 
-    # 合并：output_canvas / weight_canvas，避免创建 float64 中间数组
-    wc = weight_canvas[:out_h, :out_w]
-    oc = output_canvas[:out_h, :out_w]
+    # 截取原图对应的高置信度视口并合并，消除除零与边缘量化阶梯
+    y_start = margin * native_scale
+    y_end = (margin + h) * native_scale
+    x_start = margin * native_scale
+    x_end = (margin + w) * native_scale
+
+    wc = weight_canvas[y_start:y_end, x_start:x_end]
+    oc = output_canvas[y_start:y_end, x_start:x_end]
     del output_canvas, weight_canvas
-    # 对权重为 0 的像素置 0，防止除零
-    safe_w = np.where(wc > 0, wc, 1)
-    final_img = np.clip(oc // safe_w, 0, 255).astype(np.uint8)
-    del oc, wc, safe_w
+
+    # 原地保证非零权重，使用预分配单一 uint8 输出数组，消除冗余中间内存分配
+    np.maximum(wc, 1, out=wc)
+    final_img = np.clip(oc // wc, 0, 255, out=np.empty((out_h, out_w, c), dtype=np.uint8))
+    del oc, wc
 
     _log(f"大图拼合完成: 输出尺寸 {out_w}×{out_h}")
     _prog(95)

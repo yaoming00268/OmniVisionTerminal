@@ -7,6 +7,20 @@ import numpy as np
 from core.upscaler import core_upscale
 from core.utils import apply_letterbox_core, run_ffmpeg, get_ffmpeg_exe
 
+def check_nvenc_available():
+    """探测当前 FFmpeg 是否支持并可正常运行 h264_nvenc 硬件编码。"""
+    exe = get_ffmpeg_exe()
+    if not exe:
+        return False
+    try:
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        cmd = [exe, "-f", "lavfi", "-i", "nullsrc=s=64x64:d=0.1", "-c:v", "h264_nvenc", "-f", "null", "-"]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=creationflags, timeout=3)
+        return res.returncode == 0
+    except Exception:
+        return False
+
 def process_video_core(video_path, model, native_scale, device, scale_factor=4.0, block_size=1000,
                        use_fast_mode=False, video_mode="upscale_only", interp_ratio=2, force_custom=False,
                        target_w=1920, target_h=1080, output_dir=None, temp_workspace_dir=None,
@@ -28,9 +42,23 @@ def process_video_core(video_path, model, native_scale, device, scale_factor=4.0
 
     cap = cv2.VideoCapture(video_path)
     original_fps = cap.get(cv2.CAP_PROP_FPS)
+    orig_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     if original_fps <= 0:
         original_fps = 24.0
     cap.release()
+
+    if force_custom:
+        out_frame_w, out_frame_h = target_w, target_h
+    elif do_upscale:
+        if scale_factor != native_scale:
+            out_frame_w = max(1, int(round(orig_w * scale_factor)))
+            out_frame_h = max(1, int(round(orig_h * scale_factor)))
+        else:
+            out_frame_w = orig_w * native_scale
+            out_frame_h = orig_h * native_scale
+    else:
+        out_frame_w, out_frame_h = max(1, orig_w), max(1, orig_h)
 
     target_fps = original_fps * interp_ratio if do_interp else original_fps
 
@@ -45,18 +73,40 @@ def process_video_core(video_path, model, native_scale, device, scale_factor=4.0
     run_ffmpeg(["-y", "-i", video_path, "-vn", "-c:a", "aac", audio_path])
     has_audio = os.path.exists(audio_path) and os.path.getsize(audio_path) > 0
 
-    # 使用最高质量的 JPEG 参数 (-q:v 1) 提取帧，显著降低二次压缩损失
-    run_ffmpeg(["-y", "-i", video_path, "-vsync", "0", "-q:v", "1",
+    # 使用最高质量的 JPEG 参数 (-q:v 1) 提取帧，兼容所有 FFmpeg 版本 (移除已废弃的 -vsync 0)
+    run_ffmpeg(["-y", "-i", video_path, "-q:v", "1",
                 os.path.join(temp_dir_in, "frame_%08d.jpg")], check=True)
 
     frame_files_in = sorted([f for f in os.listdir(temp_dir_in) if f.endswith(".jpg")])
     total_frames = len(frame_files_in)
+    if total_frames == 0:
+        raise RuntimeError(f"未能从视频中提取出有效图像帧: {video_path}")
+
+    # 以首帧实际解码物理分辨率为准，杜绝 OpenCV 获取宽高为 0 或元数据不一致
+    first_frame_path = os.path.join(temp_dir_in, frame_files_in[0])
+    first_bgr = cv2.imdecode(np.fromfile(first_frame_path, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if first_bgr is not None:
+        orig_h, orig_w = first_bgr.shape[:2]
+
+    if force_custom:
+        out_frame_w, out_frame_h = target_w, target_h
+    elif do_upscale:
+        if scale_factor != native_scale:
+            out_frame_w = max(1, int(round(orig_w * scale_factor)))
+            out_frame_h = max(1, int(round(orig_h * scale_factor)))
+        else:
+            out_frame_w = orig_w * native_scale
+            out_frame_h = orig_h * native_scale
+    else:
+        out_frame_w, out_frame_h = max(1, orig_w), max(1, orig_h)
 
     if progress_callback:
         progress_callback("初始化视频滚动重构数据流...", 5)
 
-    encoder = "h264_nvenc" if device.type == "cuda" else "libx264"
-    merge_cmd = ["-y", "-f", "image2pipe", "-vcodec", "mjpeg", "-framerate", str(target_fps), "-i", "-"]
+    use_nvenc = (device.type == "cuda" and check_nvenc_available())
+    encoder = "h264_nvenc" if use_nvenc else "libx264"
+    merge_cmd = ["-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{out_frame_w}x{out_frame_h}",
+                 "-framerate", str(target_fps), "-i", "-"]
     if has_audio:
         merge_cmd.extend(["-i", audio_path, "-map", "0:v", "-map", "1:a", "-c:a", "copy"])
     else:
@@ -101,12 +151,10 @@ def process_video_core(video_path, model, native_scale, device, scale_factor=4.0
             frames_to_write.append(current_frame)
             for frm in frames_to_write:
                 frm_bgr = cv2.cvtColor(frm, cv2.COLOR_RGB2BGR)
-                ok, enc = cv2.imencode(".jpg", frm_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])
-                if ok:
-                    try:
-                        ffmpeg_proc.stdin.write(enc.tobytes())
-                    except (BrokenPipeError, OSError) as e:
-                        raise RuntimeError(f"FFmpeg 写入管道破裂，请检查显卡驱动或编码器配置: {e}")
+                try:
+                    ffmpeg_proc.stdin.write(frm_bgr.tobytes())
+                except (BrokenPipeError, OSError) as e:
+                    raise RuntimeError(f"FFmpeg 写入管道破裂，请检查显卡驱动或编码器配置: {e}")
             try:
                 os.remove(in_frame_path)
             except OSError:
@@ -124,13 +172,14 @@ def process_video_core(video_path, model, native_scale, device, scale_factor=4.0
                 except Exception:
                     pass
             try:
-                ffmpeg_proc.wait(timeout=1)
+                ffmpeg_proc.wait(timeout=60)
             except Exception:
                 try:
                     ffmpeg_proc.kill()
                 except Exception:
                     pass
         shutil.rmtree(temp_dir_in, ignore_errors=True)
+
         if os.path.exists(audio_path):
             try:
                 os.remove(audio_path)

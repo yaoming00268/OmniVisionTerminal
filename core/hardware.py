@@ -53,9 +53,9 @@ def autotune_hardware():
             return {"cuda": False, "cpu": True, "fast": False, "block": 500, "vram_gb": 0.0, "msg": "未检测到独立显卡，已切换至CPU模式。"}
         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
         if vram_gb >= 11.0:
-            return {"cuda": True, "cpu": False, "fast": True, "block": 3000, "vram_gb": round(vram_gb, 1), "msg": f"显存: {vram_gb:.1f}GB，已启用极速模式。"}
+            return {"cuda": True, "cpu": False, "fast": True, "block": 1000, "vram_gb": round(vram_gb, 1), "msg": f"显存: {vram_gb:.1f}GB，已启用极速模式。"}
         if vram_gb >= 6.0:
-            return {"cuda": True, "cpu": False, "fast": False, "block": 1500, "vram_gb": round(vram_gb, 1), "msg": f"显存: {vram_gb:.1f}GB，已优化切块大小。"}
+            return {"cuda": True, "cpu": False, "fast": False, "block": 800, "vram_gb": round(vram_gb, 1), "msg": f"显存: {vram_gb:.1f}GB，已优化切块大小。"}
         return {"cuda": True, "cpu": False, "fast": False, "block": 500, "vram_gb": round(vram_gb, 1), "msg": f"显存: {vram_gb:.1f}GB，已收紧切割阈值。"}
     except Exception as e:
         return {"cuda": False, "cpu": True, "fast": False, "block": 500, "vram_gb": 0.0, "msg": f"硬件检测异常 ({e})，已回退至CPU模式。"}

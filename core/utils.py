@@ -29,6 +29,22 @@ def run_ffmpeg(args, check=False):
     return subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                           check=check, creationflags=creationflags)
 
+def is_valid_model_file(model_path, min_bytes=64 * 1024):
+    """验证模型文件合法性: 大小至少 64KB, 排除 HTML 错误页, 允许合法的轻量化模型。"""
+    if not os.path.exists(model_path) or os.path.getsize(model_path) < min_bytes:
+        return False
+    try:
+        with open(model_path, "rb") as f:
+            header = f.read(16)
+        if header.startswith(b"PK\x03\x04") or header.startswith(b"\x80"):
+            return True
+        header_lower = header.lower()
+        if b"<html" in header_lower or b"<!doc" in header_lower or b"error" in header_lower:
+            return False
+        return True
+    except Exception:
+        return False
+
 def download_model_if_needed(model_name, model_dir="models", log_callback=None):
     import requests
     from core.models import get_model_urls
@@ -56,13 +72,13 @@ def download_model_if_needed(model_name, model_dir="models", log_callback=None):
             with open(model_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            if os.path.getsize(model_path) < 5 * 1024 * 1024:
+            if not is_valid_model_file(model_path):
                 try:
                     os.remove(model_path)
                 except OSError as err:
                     if log_callback:
                         log_callback(f"清理异常模型文件失败: {err}")
-                raise Exception("下载文件体积异常 (小于5MB)，可能为网络拦截页面或损坏文件")
+                raise Exception("下载文件体积异常或损坏 (小于64KB或为网络拦截页面)")
             if log_callback:
                 log_callback("模型下载完成")
             return model_path
@@ -91,13 +107,17 @@ def apply_letterbox_core(img_array, target_w, target_h, force_custom_res, is_alp
     if new_w <= 0 or new_h <= 0:
         return img_array
     resized_img = cv2.resize(img_array, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
-    if is_alpha or len(img_array.shape) == 2:
-        canvas = np.zeros((target_h, target_w), dtype=np.uint8)
-    else:
-        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
     y_offset = (target_h - new_h) // 2
     x_offset = (target_w - new_w) // 2
-    canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img
+    if is_alpha or len(img_array.shape) == 2:
+        canvas = np.zeros((target_h, target_w), dtype=np.uint8)
+        if len(resized_img.shape) == 3 and is_alpha:
+            canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img[:, :, 0]
+        else:
+            canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img
+    else:
+        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+        canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img
     return canvas
 
 VIDEO_EXTS = (".mp4", ".avi", ".mkv", ".mov", ".flv", ".wmv", ".webm", ".mpg", ".mpeg", ".m4v", ".ts", ".vob", ".3gp")

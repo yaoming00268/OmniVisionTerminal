@@ -45,6 +45,8 @@ desktop_trace.log
 web_start_out.log
 web_start_err.log
 提示.txt
+pack/verify_*tmp/
+pack/*tmp/
 
 # Build & Release outputs (>100MB, distributed via GitHub Releases)
 build/

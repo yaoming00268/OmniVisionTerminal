@@ -115,15 +115,41 @@ class BatchUpscaleJob:
             device_name = "CPU" if self.device.type == "cpu" else "CUDA"
             self._log_cb(f"加载模型 [{self.model_choice}] 至 {device_name}...")
             try:
-                model = ModelLoader().load_from_file(model_path).eval().to(self.device)
+                name_lower = os.path.basename(model_path).lower()
+                if "pro-" in name_lower or "cugan" in name_lower or "up2x" in name_lower or "up3x" in name_lower:
+                    try:
+                        from core.realcugan import load_realcugan_model
+                        model = load_realcugan_model(model_path, self.device)
+                    except Exception:
+                        model = ModelLoader().load_from_file(model_path).eval().to(self.device)
+                else:
+                    model = ModelLoader().load_from_file(model_path).eval().to(self.device)
             except Exception as e:
-                # 兼容自训练简单网络 (SimpleSRModel) 或非 spandrel 标准模型
+                # 兼容自训练简单网络 (SimpleSRModel) 或非 spandrel 标准模型 (Real-CUGAN 等)
                 if "SimpleSRModel" in str(e) or "UnsupportedModelError" in type(e).__name__ or "Unsupported model" in str(e):
                     try:
-                        from core.train_worker import SimpleSRModel
-                        m = SimpleSRModel(scale_factor=int(self.scale)).to(self.device)
-                        m.load_state_dict(torch.load(model_path, map_location=self.device))
-                        model = m.eval()
+                        try:
+                            from core.realcugan import load_realcugan_model
+                            model = load_realcugan_model(model_path, self.device)
+                        except Exception:
+                            from core.train_worker import SimpleSRModel
+                            import math
+                            ckpt = torch.load(model_path, map_location=self.device)
+                            if isinstance(ckpt, dict) and "state_dict" in ckpt:
+                                scale = int(ckpt.get("scale", self.scale))
+                                sd = ckpt["state_dict"]
+                            elif isinstance(ckpt, dict):
+                                sd = ckpt
+                                if "conv3.weight" in sd:
+                                    scale = int(math.isqrt(sd["conv3.weight"].shape[0] // 3))
+                                else:
+                                    scale = int(self.scale)
+                            else:
+                                sd = ckpt
+                                scale = int(self.scale)
+                            m = SimpleSRModel(scale_factor=scale).to(self.device)
+                            m.load_state_dict(sd)
+                            model = m.eval()
                     except Exception:
                         raise e
                 else:
@@ -169,13 +195,17 @@ class BatchUpscaleJob:
         if new_w <= 0 or new_h <= 0:
             return img_array
         resized_img = cv2.resize(img_array, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
-        if is_alpha or len(img_array.shape) == 2:
-            canvas = np.zeros((self.target_h, self.target_w), dtype=np.uint8)
-        else:
-            canvas = np.zeros((self.target_h, self.target_w, 3), dtype=np.uint8)
         y_offset = (self.target_h - new_h) // 2
         x_offset = (self.target_w - new_w) // 2
-        canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img
+        if is_alpha or len(img_array.shape) == 2:
+            canvas = np.zeros((self.target_h, self.target_w), dtype=np.uint8)
+            if len(resized_img.shape) == 3 and is_alpha:
+                canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img[:, :, 0]
+            else:
+                canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img
+        else:
+            canvas = np.zeros((self.target_h, self.target_w, 3), dtype=np.uint8)
+            canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized_img
         return canvas
 
     def process_base_image(self, img_path, model, native_scale):

@@ -1,5 +1,6 @@
 import os
 import glob
+import time
 import threading
 import cv2
 import numpy as np
@@ -47,6 +48,7 @@ class SRDataset(Dataset):
 class SimpleSRModel(nn.Module):
     def __init__(self, scale_factor=4):
         super(SimpleSRModel, self).__init__()
+        self.scale = scale_factor
         self.conv1 = nn.Conv2d(3, 64, kernel_size=5, padding=2)
         self.relu1 = nn.PReLU()
         self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
@@ -68,7 +70,7 @@ class TrainJob:
         self.batch_size = config.get("train_batch_size", 4)
         self.lr = config.get("train_learning_rate", 0.0001)
         self.save_freq = config.get("train_save_freq", 10)
-        self.scale = 4
+        self.scale = int(config.get("train_scale", config.get("scale", 4)))
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._log_cb = log_callback or (lambda msg: None)
         self._progress_cb = progress_callback or (lambda pct: None)
@@ -158,12 +160,20 @@ class TrainJob:
                 self._progress_cb(int(epoch / self.epochs * 100))
                 if epoch % self.save_freq == 0:
                     chk_path = os.path.join(model_dir, f"custom_model_epoch_{epoch}.pth")
-                    torch.save(model.state_dict(), chk_path)
+                    torch.save({
+                        "model_type": "SimpleSRModel",
+                        "scale": self.scale,
+                        "state_dict": model.state_dict()
+                    }, chk_path)
                     self._log_cb(f"已保存阶段性检查点: {chk_path}")
             if not self._stop_evt.is_set():
                 self._log_cb("高级模型训练循环结束，正在封存最终模型权重...")
                 final_save_path = os.path.join(model_dir, "custom_trained_model_final.pth")
-                torch.save(model.state_dict(), final_save_path)
+                torch.save({
+                    "model_type": "SimpleSRModel",
+                    "scale": self.scale,
+                    "state_dict": model.state_dict()
+                }, final_save_path)
                 self._log_cb(f"模型已成功创造并保存至: {final_save_path}")
         except Exception as e:
             self._error = str(e)

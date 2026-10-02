@@ -16,23 +16,6 @@ class SilentManager:
         self._thread.start()
 
     def _run(self):
-        # 仅降低当前工作线程的调度优先级，不影响 HTTP Server / UI 主线程
-        try:
-            if os.name == "nt":
-                import ctypes
-                THREAD_PRIORITY_IDLE = -15
-                handle = ctypes.windll.kernel32.GetCurrentThread()
-                ctypes.windll.kernel32.SetThreadPriority(handle, THREAD_PRIORITY_IDLE)
-            else:
-                import threading
-                tid = threading.get_ident()
-                # Linux/macOS: 对当前线程 nice 值（近似）
-                try:
-                    os.nice(10)  # 相对提高 nice 值降低优先级
-                except AttributeError:
-                    pass
-        except Exception:
-            pass
         while not self._stop_event.is_set():
             cpu_usage = psutil.cpu_percent(interval=1.0)
             mem_usage = psutil.virtual_memory().percent

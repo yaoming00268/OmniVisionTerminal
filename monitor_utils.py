@@ -139,10 +139,14 @@ def center_on(rect, w, h):
     return x, y
 
 
-def window_pos(w, h, secondary=True):
-    """返回窗口定位 (x, y)。默认调试屏(避开用户主屏);
-    环境变量 VT_SECONDARY=0 时使用 Windows 主屏。"""
+def window_pos(w, h, secondary=False):
+    """返回窗口定位 (x, y)。默认 Windows 主屏居中;
+    secondary=True 或环境变量 VT_SECONDARY=1 时定位至副屏。"""
+    use_sec = secondary or (os.environ.get("VT_SECONDARY") == "1")
     if os.environ.get("VT_SECONDARY") == "0":
+        use_sec = False
+
+    if not use_sec:
         rect = None
         info = MONITORINFO()
         info.cbSize = ctypes.sizeof(MONITORINFO)
@@ -151,7 +155,8 @@ def window_pos(w, h, secondary=True):
             r = info.rcMonitor
             rect = (r.left, r.top, r.right - r.left, r.bottom - r.top)
         if rect is None:
-            rect = debug_monitor_rect()
+            ms = _all_monitors()
+            rect = ms[0][1] if ms else (0, 0, 1920, 1080)
     else:
         rect = debug_monitor_rect()
     return center_on(rect, w, h)

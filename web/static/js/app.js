@@ -35,7 +35,7 @@ window.__vt_appjs_loaded = true;   // 调试标记: 判断脚本是否实际执�
   }
 
   function isDesktop() {
-    return !!(window.pywebview && window.pywebview.api);
+    return window.location.protocol === "file:" || !!(window.pywebview && window.pywebview.api);
   }
 
   function api(path, opts) {
@@ -86,7 +86,8 @@ window.__vt_appjs_loaded = true;   // 调试标记: 判断脚本是否实际执�
       var route = path.indexOf("/api/") === 0 ? path.slice(5) : path;
       return window.pywebview.api.invoke("GET", route, {}).then(function (r) {
         if (!r || r.ok === false) throw new Error((r && r.error) || "获取失败");
-        if (r.data_url) return dataUrlToBlob(r.data_url);
+        var durl = r.data_url || (r.data && r.data.data_url);
+        if (durl) return dataUrlToBlob(durl);
         throw new Error("无法获取文件");
       });
     }
@@ -430,7 +431,11 @@ window.__vt_appjs_loaded = true;   // 调试标记: 判断脚本是否实际执�
       bd.className = "weui-cell__bd";
       var nameDiv = document.createElement("div");
       nameDiv.className = "queue-item-name";
-      nameDiv.textContent = fullName ? item.name : truncateName(item.name);
+      if (fullName) {
+        nameDiv.textContent = item.name;
+      } else {
+        nameDiv.textContent = truncateName(item.name);
+      }
       nameDiv.title = item.name;
       bd.appendChild(nameDiv);
       var metaDiv = document.createElement("div");
@@ -1125,7 +1130,8 @@ window.__vt_appjs_loaded = true;   // 调试标记: 判断脚本是否实际执�
     $("#cropResultCap").textContent = "裁切结果: " + name;
     if (isDesktop()) {
       window.pywebview.api.invoke("GET", "output/" + token, {}).then(function (r) {
-        if (r && r.ok && r.data_url) img.src = r.data_url;
+        var durl = r && r.ok && (r.data_url || (r.data && r.data.data_url));
+        if (durl) img.src = durl;
         else { img.hidden = true; box.hidden = true; }
       });
     } else {
@@ -1548,9 +1554,10 @@ window.__vt_appjs_loaded = true;   // 调试标记: 判断脚本是否实际执�
     init();
   }
   var _tries = 0;
+  var isLocalFile = window.location.protocol === "file:";
   (function waitReady() {
     var domReady = document.readyState !== "loading";
-    if (isDesktop()) {
+    if (isLocalFile || window.pywebview) {
       if (domReady && window.pywebview && window.pywebview.api &&
           typeof window.pywebview.api.invoke === "function") {
         boot();

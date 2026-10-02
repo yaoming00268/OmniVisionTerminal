@@ -33,8 +33,8 @@ def analyze_image_file(path):
     if img is None:
         raise Exception(f"无法读取图片: {path}")
     h, w = img.shape[:2]
-    has_alpha = len(img.shape) == 3 and img.shape[2] == 4 and np.any(img[:, :, 3] < 255)
-    return {"width": w, "height": h, "has_alpha": has_alpha}
+    has_alpha = bool(len(img.shape) == 3 and img.shape[2] == 4 and np.any(img[:, :, 3] < 255))
+    return {"width": int(w), "height": int(h), "has_alpha": has_alpha}
 
 def crop_image_file(path, x, y, width, height, out_path, out_ext=".png"):
     import cv2

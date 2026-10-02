@@ -31,8 +31,8 @@ DEFAULT_CONFIG = {
     "cloud_server_url": "http://127.0.0.1:8000/process",
     "use_cloud_mode": False,
     "webui_port": 7860,
-    "webui_share": True,
-    "webui_server_name": "0.0.0.0",
+    "webui_share": False,
+    "webui_server_name": "127.0.0.1",
     "webui_theme": "light",
     "silent_mode": False,
     "default_image_format": ".png",
@@ -80,7 +80,9 @@ def load_config():
 
 def save_config(config_data):
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        tmp_file = CONFIG_FILE + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(config_data, f, ensure_ascii=False, indent=4)
+        os.replace(tmp_file, CONFIG_FILE)
     except Exception as e:
         print(f"写入配置失败: {e}")

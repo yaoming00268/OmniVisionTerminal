@@ -188,7 +188,7 @@ class DesktopApi:
                 % (ctype, base64.b64encode(body).decode("ascii"))}
 
     def _output(self, state, result, token):
-        status, _ctype, _body, _headers = result
+        status = result[0]
         if status != 200:
             return {"ok": False, "status": status, "error": "输出不存在"}
         item = state.output_registry.get(token) or {}
@@ -198,7 +198,10 @@ class DesktopApi:
         data_url = self._cached_img("/api/preview/" + token)
         if data_url.startswith("data:"):
             data["data_url"] = data_url
-        return {"ok": True, "status": 200, "data": data}
+        res = {"ok": True, "status": 200, "data": data}
+        if "data_url" in data:
+            res["data_url"] = data["data_url"]
+        return res
 
     # ---------------- 预览图缓存(轮询无开销) ----------------
 
@@ -278,7 +281,7 @@ class DesktopApi:
         if path and os.path.exists(path):
             import subprocess
             try:
-                subprocess.Popen(['explorer', f'/select,{os.path.abspath(path)}'])
+                subprocess.Popen(f'explorer /select,"{os.path.abspath(path)}"')
             except Exception as e:
                 return {"ok": False, "error": f"定位文件失败: {e}"}
         return {"ok": True}

@@ -66,7 +66,7 @@ def _run_desktop(secondary=False):
     index = os.path.join(PROJECT_ROOT, "web", "index.html")
     wargs = dict(width=1280, height=840, min_size=(960, 640))
     if secondary:
-        x, y = window_pos(1280, 840)
+        x, y = window_pos(1280, 840, secondary=True)
         wargs["x"], wargs["y"] = x, y
     _trace("step4 create_window")
     win = webview.create_window(
@@ -103,8 +103,9 @@ def main():
 
     config = load_config()
     port = args.port or int(config.get("webui_port", 7860))
-    server_name = args.server_name or config.get("webui_server_name", "0.0.0.0")
-    if config.get("webui_share") and server_name == "0.0.0.0":
+    default_host = "0.0.0.0" if config.get("webui_share") else "127.0.0.1"
+    server_name = args.server_name or config.get("webui_server_name", default_host)
+    if config.get("webui_share") and server_name in ("0.0.0.0", "::"):
         print("提示: 已启用局域网共享模式 (webui_share)，其他设备可通过本机局域网 IP 访问。")
     print("正在加载核心组件(PyTorch / OpenCV / 模型引擎)...")
     try:

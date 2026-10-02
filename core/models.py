@@ -22,12 +22,12 @@ def get_model_descs():
 
 def get_model_urls():
     return {
-        "pro-no-denoise-up2x": None,
-        "pro-no-denoise-up3x": None,
-        "pro-conservative-up2x": None,
-        "pro-conservative-up3x": None,
-        "pro-denoise3x-up2x": None,
-        "pro-denoise3x-up3x": None,
+        "pro-no-denoise-up2x": "https://huggingface.co/JacksonYan/Real-CUGAN/resolve/main/weights/up2x-latest-no-denoise.pth",
+        "pro-no-denoise-up3x": "https://huggingface.co/JacksonYan/Real-CUGAN/resolve/main/weights/up3x-latest-no-denoise.pth",
+        "pro-conservative-up2x": "https://huggingface.co/JacksonYan/Real-CUGAN/resolve/main/weights/up2x-latest-conservative.pth",
+        "pro-conservative-up3x": "https://huggingface.co/JacksonYan/Real-CUGAN/resolve/main/weights/up3x-latest-conservative.pth",
+        "pro-denoise3x-up2x": "https://huggingface.co/JacksonYan/Real-CUGAN/resolve/main/weights/up2x-latest-denoise3x.pth",
+        "pro-denoise3x-up3x": "https://huggingface.co/JacksonYan/Real-CUGAN/resolve/main/weights/up3x-latest-denoise3x.pth",
         "HAT_x4": "https://huggingface.co/Acly/hat/resolve/main/HAT_SRx4_ImageNet-pretrain.pth",
         "anime_6B": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth",
         "realesr-animevideov3": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth",

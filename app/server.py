@@ -293,7 +293,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 pass
 
 class WebServer:
-    def __init__(self, port=7860, server_name="0.0.0.0", open_browser=True):
+    def __init__(self, port=7860, server_name="127.0.0.1", open_browser=True):
         self.port = int(port)
         self.server_name = server_name
         self.open_browser = open_browser

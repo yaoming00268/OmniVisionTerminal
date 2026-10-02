@@ -391,8 +391,21 @@ class AppState:
         with self._lock:
             if file_id:
                 self.queue = [q for q in self.queue if q["id"] != file_id]
+                removed_ids = [file_id]
             else:
+                removed_ids = [q["id"] for q in self.queue]
                 self.queue = []
+            for fid in removed_ids:
+                item = self.file_registry.pop(fid, None)
+                if item and "path" in item:
+                    p = item["path"]
+                    try:
+                        abs_p = os.path.abspath(p)
+                        abs_upload = os.path.abspath(UPLOAD_DIR)
+                        if abs_p.startswith(abs_upload) and os.path.isfile(abs_p):
+                            os.remove(abs_p)
+                    except Exception:
+                        pass
 
 def _public_config(config):
     data = dict(config)
@@ -405,7 +418,9 @@ def _err_json(msg):
 # ---------- API 处理函数: 返回 (status, content_type, body_bytes, headers|None) ----------
 
 def api_get_config(state):
-    return 200, "application/json", json.dumps(_public_config(state.config), ensure_ascii=False).encode("utf-8"), None
+    with state._lock:
+        cfg = _public_config(state.config)
+    return 200, "application/json", json.dumps(cfg, ensure_ascii=False).encode("utf-8"), None
 
 def api_post_config(state, body):
     try:
@@ -413,37 +428,39 @@ def api_post_config(state, body):
     except Exception:
         return 400, "application/json", _err_json("无效的 JSON"), None
     changed = False
-    for key, value in data.items():
-        if key not in CONFIG_SCHEMA:
-            continue
-        kind, vmin, vmax = CONFIG_SCHEMA[key]
-        try:
-            if kind == "bool":
-                value = bool(value)
-            elif kind == "int":
-                value = int(value)
-            elif kind == "float":
-                value = float(value)
-            elif kind == "list":
-                value = value if isinstance(value, list) else []
-            else:
-                value = str(value)
-        except (TypeError, ValueError):
-            continue
-        if vmin is not None and value < vmin:
-            value = vmin
-        if vmax is not None and value > vmax:
-            value = vmax
-        if key == "output_format":
-            value = value if value in OUT_FORMATS else DEFAULT_CONFIG.get("output_format", ".png")
-        if key == "video_mode":
-            value = value if value in VIDEO_MODES else DEFAULT_CONFIG.get("video_mode", "upscale_only")
-        if key == "interp_ratio":
-            value = value if value in (2, 4) else DEFAULT_CONFIG.get("interp_ratio", 2)
-        state.config[key] = value
-        changed = True
+    with state._lock:
+        for key, value in data.items():
+            if key not in CONFIG_SCHEMA:
+                continue
+            kind, vmin, vmax = CONFIG_SCHEMA[key]
+            try:
+                if kind == "bool":
+                    value = bool(value)
+                elif kind == "int":
+                    value = int(value)
+                elif kind == "float":
+                    value = float(value)
+                elif kind == "list":
+                    value = value if isinstance(value, list) else []
+                else:
+                    value = str(value)
+            except (TypeError, ValueError):
+                continue
+            if vmin is not None and value < vmin:
+                value = vmin
+            if vmax is not None and value > vmax:
+                value = vmax
+            if key == "output_format":
+                value = value if value in OUT_FORMATS else DEFAULT_CONFIG.get("output_format", ".png")
+            if key == "video_mode":
+                value = value if value in VIDEO_MODES else DEFAULT_CONFIG.get("video_mode", "upscale_only")
+            if key == "interp_ratio":
+                value = value if value in (2, 4) else DEFAULT_CONFIG.get("interp_ratio", 2)
+            state.config[key] = value
+            changed = True
+        config_snapshot = dict(state.config)
     if changed:
-        save_config(state.config)
+        save_config(config_snapshot)
     return 200, "application/json", json.dumps({"ok": True}, ensure_ascii=False).encode("utf-8"), None
 
 def api_get_models(state):
@@ -493,14 +510,18 @@ def api_post_model_order(state, body):
         order = data.get("order")
         if not isinstance(order, list):
             raise ValueError("order 必须是数组")
-        state.config["model_order"] = [str(x) for x in order]
-        save_config(state.config)
+        with state._lock:
+            state.config["model_order"] = [str(x) for x in order]
+            config_snapshot = dict(state.config)
+        save_config(config_snapshot)
     except Exception as e:
         return 400, "application/json", json.dumps({"error": str(e)}, ensure_ascii=False).encode("utf-8"), None
     return 200, "application/json", b'{"ok":true}', None
 
 def api_get_queue(state):
-    return 200, "application/json", json.dumps({"files": state.queue}, ensure_ascii=False).encode("utf-8"), None
+    with state._lock:
+        files = list(state.queue)
+    return 200, "application/json", json.dumps({"files": files}, ensure_ascii=False).encode("utf-8"), None
 
 def api_post_queue(state, form, body=None):
     added = []
@@ -539,18 +560,23 @@ def api_post_queue(state, form, body=None):
                                     collected.append(os.path.join(root, n))
                 for p in collected:
                     token = uuid.uuid4().hex
-                    state.file_registry[token] = {"path": p, "name": os.path.basename(p),
-                                                  "size": os.path.getsize(p), "ext": _ext(p)}
-                    added.append(state.queue_add(token))
+                    with state._lock:
+                        state.file_registry[token] = {"path": p, "name": os.path.basename(p),
+                                                      "size": os.path.getsize(p), "ext": _ext(p)}
+                        added.append(state.queue_add(token))
         except Exception:
             pass
-    return 200, "application/json", json.dumps({"files": state.queue, "added": len(added)},
+    with state._lock:
+        files = list(state.queue)
+    return 200, "application/json", json.dumps({"files": files, "added": len(added)},
                                                 ensure_ascii=False).encode("utf-8"), None
 
 def api_delete_queue(state, query):
     file_id = query.get("id")
     state.queue_remove(file_id)
-    return 200, "application/json", json.dumps({"files": state.queue}, ensure_ascii=False).encode("utf-8"), None
+    with state._lock:
+        files = list(state.queue)
+    return 200, "application/json", json.dumps({"files": files}, ensure_ascii=False).encode("utf-8"), None
 
 def api_post_job_start(state, body):
     try:

@@ -10,7 +10,10 @@ def build_webapp_package(output_dir=None):
         output_dir = root
     os.makedirs(output_dir, exist_ok=True)
     zip_path = os.path.join(output_dir, f"{PACKAGE_DIR_NAME}.zip")
-    entries = ["main.py", "start_webui.bat", "core", "app", "web", "models"]
+    entries = [
+        "main.py", "desktop_api.py", "monitor_utils.py", "start_webui.bat",
+        "requirements.txt", "core", "app", "web", "models",
+    ]
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for entry in entries:
             full = os.path.join(root, entry)

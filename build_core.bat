@@ -23,7 +23,7 @@ if exist *.spec del /q *.spec
 
 echo.
 echo [2/6] 发动暗影结界 (PyArmor)...
-pyarmor gen -O obf_dist -r main.py core app
+pyarmor gen -O obf_dist -r main.py desktop_api.py monitor_utils.py core app
 if %ERRORLEVEL% NEQ 0 (
     echo [致命错误] PyArmor 加密失败。
     pause
@@ -39,8 +39,15 @@ pyinstaller --noconfirm --onedir --windowed --name "PhantomCore" ^
     -p obf_dist ^
     --add-data "web;web" ^
     --add-data "models;models" ^
+    --add-data "obf_dist\core;core" ^
+    --add-data "obf_dist\app;app" ^
+    --add-data "obf_dist\desktop_api.py;." ^
+    --add-data "obf_dist\monitor_utils.py;." ^
     %FFMPEG_ADD% ^
     --hidden-import pyarmor_runtime_000000 ^
+    --hidden-import webview ^
+    --hidden-import desktop_api ^
+    --hidden-import monitor_utils ^
     --hidden-import cv2 ^
     --hidden-import torch ^
     --hidden-import numpy ^
